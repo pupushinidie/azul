@@ -1,0 +1,16 @@
+{
+  "description": "a single square azulejo ceramic tile in deep crimson red, repeating diagonal stripe pattern in darker red, glossy glaze, top-down view, the tile fills the whole image, crisp pixel art, flat lighting",
+  "image_size": {
+    "width": 64,
+    "height": 64
+  },
+  "no_background": false,
+  "outline": "lineless",
+  "seed": 202,
+  "endpoint": "/create-image-pixflux",
+  "usage": {
+    "type": "usd",
+    "usd": 0.005935310204823812
+  },
+  "seconds": 30.0
+}

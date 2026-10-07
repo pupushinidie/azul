@@ -1,0 +1,16 @@
+{
+  "description": "hands arranging colorful azulejo tiles on a blue and white tiled pattern board, several square ceramic tiles in blue yellow red black and white scattered on a warm wooden table, top-down view, cozy warm light, pixel art",
+  "image_size": {
+    "width": 400,
+    "height": 224
+  },
+  "no_background": false,
+  "outline": "lineless",
+  "seed": 402,
+  "endpoint": "/create-image-pixflux",
+  "usage": {
+    "type": "usd",
+    "usd": 0.007235128932529026
+  },
+  "seconds": 41.3
+}

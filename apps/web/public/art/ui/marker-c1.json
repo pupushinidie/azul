@@ -1,0 +1,16 @@
+{
+  "description": "a small round wooden disc token painted with a big number 1 in the center, game marker, top-down view, transparent background",
+  "image_size": {
+    "width": 48,
+    "height": 48
+  },
+  "no_background": true,
+  "outline": "single color black outline",
+  "seed": 301,
+  "endpoint": "/create-image-pixflux",
+  "usage": {
+    "type": "usd",
+    "usd": 0.005894209146499634
+  },
+  "seconds": 26.4
+}

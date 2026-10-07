@@ -1,0 +1,230 @@
+/* 花砖物语（Azul）牌桌样式：叠在 app-pixel.css 上，只写游戏棋盘的部分。 */
+
+/* ---------- 屏幕骨架 ---------- */
+.az-screen {
+  --tile: 36px;
+  display: grid;
+  grid-template-areas:
+    "top top"
+    "supply supply"
+    "boards side";
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px;
+}
+.az-topbar { grid-area: top; display: flex; align-items: center; gap: 16px; justify-content: space-between; }
+.az-topbar-right { display: flex; align-items: center; gap: 12px; }
+.az-turn { display: flex; flex-direction: column; gap: 2px; color: var(--muted); font-size: 12px; }
+.az-turn-who { display: inline-flex; align-items: center; gap: 8px; }
+.az-turn-who i { width: 8px; height: 8px; }
+.az-turn-who.mine { color: var(--gold); }
+.az-timer { margin-left: 4px; color: var(--text); font-weight: 400; }
+.az-timer.low { color: var(--bad); }
+
+/* ---------- 工厂与中心区 ---------- */
+.az-supply { grid-area: supply; display: flex; gap: 16px; align-items: flex-start; }
+.az-factories { display: flex; flex-wrap: wrap; gap: 12px; flex: 1; }
+.az-factory {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  display: grid;
+  grid-template-columns: repeat(2, var(--tile));
+  grid-template-rows: repeat(2, var(--tile));
+  place-content: center;
+  gap: 4px;
+  background: radial-gradient(circle at 50% 40%, #6a4f37 0%, #4a3726 55%, #2e2319 100%);
+  box-shadow:
+    0 0 0 var(--px) var(--edge),
+    inset 0 0 0 calc(var(--px) * 2) #120e0b;
+  transition: filter 0.12s;
+}
+.az-factory.empty { opacity: 0.35; }
+.az-center {
+  flex: 0 0 240px;
+  min-height: 108px;
+  padding: 10px;
+  background: var(--panel);
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge),
+    inset var(--px) var(--px) 0 0 var(--rim),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.az-center.empty { opacity: 0.5; }
+.az-center-label { color: var(--muted); font-size: 12px; }
+.az-center-tiles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: var(--tile); }
+.az-bag-note { color: var(--muted); font-size: 12px; margin-top: auto; }
+
+/* ---------- 砖块与空位 ---------- */
+.az-tile {
+  width: var(--tile);
+  height: var(--tile);
+  border: 0;
+  padding: 0;
+  display: inline-block;
+  background-size: cover;
+  background-position: center;
+  image-rendering: pixelated;
+  box-shadow:
+    inset 0 0 0 var(--px) rgba(0, 0, 0, 0.4),
+    inset 0 0 0 calc(var(--px) * 2) rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+button.az-tile:hover:not(:disabled) { transform: translateY(calc(var(--px) * -1)); }
+.az-tile:disabled { cursor: default; }
+.az-tile.picked {
+  box-shadow:
+    0 0 0 var(--px) var(--gold),
+    inset 0 0 0 var(--px) rgba(0, 0, 0, 0.4);
+}
+.az-slot {
+  width: var(--tile);
+  height: var(--tile);
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.18);
+  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.05);
+}
+.az-marker {
+  width: var(--tile);
+  height: var(--tile);
+  border: 0;
+  padding: 0;
+  display: inline-block;
+  background-size: cover;
+  background-position: center;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+
+/* ---------- 提示与棋盘网格 ---------- */
+.az-boards { grid-area: boards; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.az-prompt { color: var(--text); font-size: 12px; min-height: 24px; display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+.az-prompt-buttons { display: inline-flex; gap: 8px; }
+.az-feedback { margin: 0; font-size: 12px; }
+.az-feedback.error { color: var(--bad); }
+.az-board-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
+
+/* ---------- 玩家棋盘 ---------- */
+.az-board {
+  padding: 12px;
+  background: var(--panel);
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge),
+    inset var(--px) var(--px) 0 0 var(--rim),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+}
+.az-board.me { --rim: var(--gold); }
+.az-board.active { --rim: var(--ok); }
+.az-board-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.az-board-head strong { color: var(--text); font-weight: 400; }
+.az-board-head strong small { color: var(--gold); margin-left: 4px; }
+.az-seat { width: 10px; height: 10px; flex: 0 0 auto; }
+.az-marker-holder { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.az-marker-holder i { width: 16px; height: 16px; display: inline-block; background-size: cover; image-rendering: pixelated; }
+.az-score { margin-left: auto; color: var(--gold); font-size: 20px; }
+
+.az-board-body { display: flex; gap: 12px; align-items: stretch; }
+.az-pattern-lines { display: flex; flex-direction: column; gap: 4px; }
+.az-line {
+  display: flex;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+button.az-line.clickable { cursor: pointer; }
+.az-line.target {
+  background: rgba(240, 192, 80, 0.12);
+  box-shadow: inset 0 0 0 var(--px) var(--gold);
+}
+
+.az-wall { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.az-wall-row { display: flex; gap: 4px; }
+.az-wall-cell {
+  width: var(--tile);
+  height: var(--tile);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.06);
+}
+.az-wall-cell i { width: 10px; height: 10px; border-radius: 50%; opacity: 0.55; }
+
+.az-floor {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  cursor: default;
+}
+.az-floor .az-tile, .az-floor .az-slot, .az-floor .az-marker { --tile: 24px; }
+.az-floor-label { color: var(--muted); font-size: 12px; margin-right: 6px; }
+button.az-floor.target { box-shadow: inset 0 0 0 var(--px) var(--gold); cursor: pointer; }
+.az-floor .az-marker { width: 24px; height: 24px; }
+
+/* ---------- 侧栏 ---------- */
+.az-side { grid-area: side; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.az-panel {
+  padding: 12px;
+  background: var(--panel);
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge),
+    inset var(--px) var(--px) 0 0 var(--rim),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+}
+.az-panel h3 { margin: 0 0 8px; color: var(--gold); font-weight: 400; font-size: 12px; }
+.az-panel h3 small { color: var(--muted); font-weight: 400; }
+.az-players { display: flex; flex-direction: column; gap: 6px; }
+.az-player { display: flex; align-items: center; gap: 8px; color: var(--text); }
+.az-player strong { font-weight: 400; }
+.az-player strong small { color: var(--gold); margin-left: 4px; }
+.az-player.offline { color: var(--muted); }
+.az-player.active strong { color: var(--gold); }
+.az-player .az-score { margin-left: auto; font-size: 14px; }
+.az-log ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+.az-log li { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.az-muted { color: var(--muted); font-size: 12px; }
+.az-chat { margin-top: 4px; }
+
+/* ---------- 终局 ---------- */
+.az-result { width: min(440px, 100%); }
+.az-standings { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.az-standings li { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 12px; }
+.az-standings li.winner { color: var(--gold); }
+.az-score-detail { margin-left: auto; color: var(--gold); }
+.az-score-detail small { color: var(--muted); }
+.az-rematch { margin-top: 12px; color: var(--muted); font-size: 12px; }
+.az-rematch .gm-panel-actions { margin-top: 12px; }
+
+/* ---------- 首页：主图与砖块展示 ---------- */
+.app-shell .az-hero { display: block; width: 100%; max-width: 400px; margin-top: 28px; image-rendering: pixelated; }
+.app-shell .az-showcase { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+.app-shell .az-showcase .az-tile { --tile: 48px; cursor: default; }
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 960px) {
+  .az-screen { grid-template-areas: "top" "supply" "boards" "side"; grid-template-columns: minmax(0, 1fr); }
+  .az-side { flex-direction: row; flex-wrap: wrap; }
+  .az-side > * { flex: 1 1 240px; }
+}
