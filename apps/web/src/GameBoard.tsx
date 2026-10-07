@@ -29,14 +29,8 @@ interface GameBoardProps {
   readonly onDissolve: () => void;
 }
 
-/** 五种颜色在界面上的实心色，用于墙格的空位提示和选中高亮。 */
-const TINT: Record<Color, string> = {
-  blue: "#3b6fd4",
-  yellow: "#e0b23c",
-  red: "#c8453c",
-  black: "#3a3a40",
-  white: "#e8e4da",
-};
+/** 地板行 7 格各自的扣分。 */
+const FLOOR_PENALTIES = [-1, -1, -2, -2, -2, -3, -3] as const;
 
 const LINE_INDICES: readonly LineIndex[] = [0, 1, 2, 3, 4];
 const SEAT_COLORS = ["#e8833a", "#3fb6c9", "#d65db1", "#9ccf4a"];
@@ -76,9 +70,10 @@ function describeEvent(event: GameEvent, name: (id: string) => string): string |
       return `${name(event.player)} 从${from}拿走 ${event.count} 块${COLOR_NAMES[event.color]}砖${markerNote}`;
     }
     case "TilesPlaced": {
-      const where = event.lineIndex === null ? "地板行" : `第 ${event.lineIndex + 1} 条图案行`;
-      const n = event.lineIndex === null ? event.floorCount : event.lineCount;
-      return `${name(event.player)} 把 ${n} 块${COLOR_NAMES[event.color]}砖放进${where}`;
+      // lineCount 是这条图案行放完后的总块数，不是这次放了几块
+      if (event.lineIndex === null) return `${name(event.player)} 把 ${event.floorCount} 块${COLOR_NAMES[event.color]}砖放进地板行`;
+      const overflow = event.floorCount > 0 ? `，多出的 ${event.floorCount} 块掉进地板` : "";
+      return `${name(event.player)} 放进第 ${event.lineIndex + 1} 条图案行（现在 ${event.lineCount}/${event.lineIndex + 1}）${overflow}`;
     }
     case "WallTiled":
       return `${name(event.player)} 在第 ${event.row + 1} 行墙上落下${COLOR_NAMES[event.color]}砖，+${event.gained} 分`;
@@ -104,6 +99,9 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
   const current = game.players[game.currentPlayer];
   const myTurn = game.phase === "drafting" && current?.id === myId;
   const secondsLeft = useCountdown(room);
+  // 「对局已开始」这类提示只留到第一步动作，之后不再一直挂在棋盘上
+  const firstVersion = useRef(game.version);
+  const shownNotice = game.version === firstVersion.current ? notice : "";
 
   const seatColor = (playerId: string) => SEAT_COLORS[Math.max(0, game.players.findIndex((player) => player.id === playerId)) % SEAT_COLORS.length]!;
   const nameOf = (playerId: string) => (playerId === myId ? "你" : game.players.find((player) => player.id === playerId)?.name ?? "?");
@@ -121,7 +119,8 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
     const lines = game.events
       .map((event, index) => ({ key: `${game.version}-${index}`, text: describeEvent(event, nameOf) }))
       .filter((line): line is { key: string; text: string } => line.text !== null);
-    setLog((previous) => [...lines.reverse(), ...previous].slice(0, 40));
+    // 最新的一步排在最上面；同一步里的几条按发生顺序
+    setLog((previous) => [...lines, ...previous].slice(0, 40));
   }, [game.version]);
 
   const canAct = myTurn && !busy;
@@ -224,7 +223,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
             </span>
           )}
         </div>
-        {(error || notice) && <p className={error ? "az-feedback error" : "az-feedback"} role={error ? "alert" : "status"}>{error || notice}</p>}
+        {(error || shownNotice) && <p className={error ? "az-feedback error" : "az-feedback"} role={error ? "alert" : "status"}>{error || shownNotice}</p>}
 
         <div className="az-board-grid">
           {game.players.map((player) => (
@@ -280,7 +279,7 @@ function PlayerBoard({
     <div className={["az-board", me ? "me" : "", active ? "active" : ""].join(" ")}>
       <div className="az-board-head">
         <i className="az-seat" style={{ background: seatColor }} />
-        <strong>{player.name}{me && <small>你</small>}</strong>
+        <strong>{player.name}{me && <small className="az-you">你</small>}</strong>
         {markerHolder && <span className="az-marker-holder" title="下轮先手"><i style={{ backgroundImage: `url(${iconArt.marker})` }} />先手</span>}
         <span className="az-score">{player.score}</span>
       </div>
@@ -301,7 +300,8 @@ function PlayerBoard({
                 aria-label={`第 ${index + 1} 条图案行（容量 ${capacity}）`}
               >
                 {Array.from({ length: capacity }, (_, slot) => {
-                  const color = slot < line.count ? line.color : null;
+                  // 砖从靠墙的右端往左填
+                  const color = slot >= capacity - line.count ? line.color : null;
                   return color ? (
                     <span key={slot} className="az-tile" style={{ backgroundImage: `url(${tileArt[color]})` }} />
                   ) : (
@@ -322,8 +322,8 @@ function PlayerBoard({
                 return filled ? (
                   <span key={col} className="az-tile" style={{ backgroundImage: `url(${tileArt[targetColor]})` }} />
                 ) : (
-                  <span key={col} className="az-wall-cell">
-                    <i style={{ background: TINT[targetColor] }} />
+                  <span key={col} className="az-wall-cell" title={`${COLOR_NAMES[targetColor]}砖的位置`}>
+                    <i style={{ backgroundImage: `url(${tileArt[targetColor]})` }} />
                   </span>
                 );
               })}
@@ -341,16 +341,20 @@ function PlayerBoard({
         title="地板行（最多 7 格，要扣分）"
       >
         <span className="az-floor-label">地板</span>
-        {player.floor.map((tile, index) => (
-          <span
-            key={index}
-            className={tile === "marker" ? "az-marker" : "az-tile"}
-            style={{ backgroundImage: tile === "marker" ? `url(${iconArt.marker})` : `url(${tileArt[tile]})` }}
-          />
-        ))}
-        {Array.from({ length: 7 - player.floor.length }, (_, index) => (
-          <span key={`empty-${index}`} className="az-slot" />
-        ))}
+        {FLOOR_PENALTIES.map((penalty, index) => {
+          const tile = player.floor[index];
+          return (
+            <span className="az-floor-cell" key={index}>
+              {tile === undefined ? <span className="az-slot" /> : (
+                <span
+                  className={tile === "marker" ? "az-marker" : "az-tile"}
+                  style={{ backgroundImage: tile === "marker" ? `url(${iconArt.marker})` : `url(${tileArt[tile]})` }}
+                />
+              )}
+              <small>{penalty}</small>
+            </span>
+          );
+        })}
       </button>
     </div>
   );
@@ -368,8 +372,8 @@ function Players({ game, myId, seatColor, connected }: { game: GameState; myId: 
         return (
           <div className={["az-player", active ? "active" : "", player.id === myId ? "me" : "", !connected(player.id) ? "offline" : ""].join(" ")} key={player.id}>
             <i className="az-seat" style={{ background: seatColor(player.id) }} />
-            <strong>{player.name}{player.id === myId && <small>你</small>}</strong>
-            {!connected(player.id) && <small>离线</small>}
+            <strong>{player.name}{player.id === myId && <small className="az-you">你</small>}</strong>
+            {!connected(player.id) && <small className="az-offline">离线</small>}
             <span className="az-score">{player.score}</span>
           </div>
         );
@@ -394,10 +398,15 @@ function FinalDialog({ game, room, myId, nameOf, onRematch }: { game: GameState;
             const winner = result.winners.includes(player.id);
             return (
               <li key={player.id} className={winner ? "winner" : ""}>
-                {winner ? "🏆 " : ""}{player.name}{player.id === myId ? "（你）" : ""}
+                <span className="az-standing-name">{winner ? "🏆 " : ""}{player.name}{player.id === myId ? "（你）" : ""}</span>
                 {score && (
-                  <span className="az-score-detail" title={`横排 +${score.rows * 2} · 竖列 +${score.columns * 7} · 集色 +${score.colors * 10}`}>
-                    {score.score}<small>（含奖励 +{score.bonus}）</small>
+                  <span className="az-score-detail">
+                    <b>{score.score} 分</b>
+                    <small>
+                      {score.bonus > 0
+                        ? `终局奖励 +${score.bonus}：横排 ${score.rows} 条 · 竖列 ${score.columns} 条 · 集齐 ${score.colors} 色`
+                        : "没有终局奖励"}
+                    </small>
                   </span>
                 )}
               </li>
