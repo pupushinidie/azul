@@ -76,7 +76,7 @@ export const httpServer = createServer((request, response) => {
 });
 
 const configuredWebOrigins = new Set(
-  (process.env.WEB_ORIGINS ?? process.env.WEB_ORIGIN ?? "http://localhost:5178")
+  (process.env.WEB_ORIGINS ?? process.env.WEB_ORIGIN ?? "http://localhost:5179")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),
@@ -96,7 +96,7 @@ function isAllowedWebOrigin(origin: string | undefined): boolean {
   try {
     const parsed = new URL(origin);
     return parsed.protocol === "http:"
-      && parsed.port === "5178"
+      && parsed.port === "5179"
       && (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || isPrivateIpv4(parsed.hostname));
   } catch {
     return false;
