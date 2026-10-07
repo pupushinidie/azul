@@ -1,8 +1,11 @@
 /* 花砖物语（Azul）牌桌样式：叠在 app-pixel.css 上，只写游戏棋盘的部分。 */
 
+/* 游戏棋盘比首页宽：覆盖 styles.css 里 .app-shell 的 1120px 上限。 */
+.app-shell.az-game { width: min(1480px, calc(100% - 24px)); }
+
 /* ---------- 屏幕骨架 ---------- */
 .az-screen {
-  --tile: 36px;
+  --tile: 32px; /* 64px 原图的整数缩放（2:1），像素画不糊 */
   display: grid;
   grid-template-areas:
     "top top"
@@ -11,9 +14,9 @@
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: 14px;
   width: 100%;
-  max-width: 1400px;
+  max-width: 1480px;
   margin: 0 auto;
-  padding: 12px;
+  padding: 14px;
 }
 .az-topbar { grid-area: top; display: flex; align-items: center; gap: 16px; justify-content: space-between; }
 .az-topbar-right { display: flex; align-items: center; gap: 12px; }
@@ -26,10 +29,10 @@
 
 /* ---------- 工厂与中心区 ---------- */
 .az-supply { grid-area: supply; display: flex; gap: 16px; align-items: flex-start; }
-.az-factories { display: flex; flex-wrap: wrap; gap: 12px; flex: 1; }
+.az-factories { display: flex; flex-wrap: wrap; gap: 10px; flex: 1; }
 .az-factory {
-  width: 108px;
-  height: 108px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   display: grid;
   grid-template-columns: repeat(2, var(--tile));
@@ -44,8 +47,8 @@
 }
 .az-factory.empty { opacity: 0.35; }
 .az-center {
-  flex: 0 0 240px;
-  min-height: 108px;
+  flex: 0 0 224px;
+  min-height: 100px;
   padding: 10px;
   background: var(--panel);
   box-shadow:
@@ -112,7 +115,8 @@ button.az-tile:hover:not(:disabled) { transform: translateY(calc(var(--px) * -1)
 .az-prompt-buttons { display: inline-flex; gap: 8px; }
 .az-feedback { margin: 0; font-size: 12px; }
 .az-feedback.error { color: var(--bad); }
-.az-board-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
+/* 玩家板固定宽度、居中换行，绝不溢出 */
+.az-board-grid { display: grid; grid-template-columns: repeat(auto-fit, 400px); justify-content: center; gap: 12px; }
 
 /* ---------- 玩家棋盘 ---------- */
 .az-board {
@@ -152,7 +156,7 @@ button.az-line.clickable { cursor: pointer; }
   box-shadow: inset 0 0 0 var(--px) var(--gold);
 }
 
-.az-wall { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.az-wall { display: flex; flex-direction: column; gap: 4px; }
 .az-wall-row { display: flex; gap: 4px; }
 .az-wall-cell {
   width: var(--tile);
@@ -175,10 +179,8 @@ button.az-line.clickable { cursor: pointer; }
   background: rgba(0, 0, 0, 0.2);
   cursor: default;
 }
-.az-floor .az-tile, .az-floor .az-slot, .az-floor .az-marker { --tile: 24px; }
 .az-floor-label { color: var(--muted); font-size: 12px; margin-right: 6px; }
 button.az-floor.target { box-shadow: inset 0 0 0 var(--px) var(--gold); cursor: pointer; }
-.az-floor .az-marker { width: 24px; height: 24px; }
 
 /* ---------- 侧栏 ---------- */
 .az-side { grid-area: side; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
@@ -223,8 +225,18 @@ button.az-floor.target { box-shadow: inset 0 0 0 var(--px) var(--gold); cursor: 
 .app-shell .az-showcase .az-tile { --tile: 48px; cursor: default; }
 
 /* ---------- 窄屏 ---------- */
-@media (max-width: 960px) {
+@media (max-width: 1200px) {
   .az-screen { grid-template-areas: "top" "supply" "boards" "side"; grid-template-columns: minmax(0, 1fr); }
-  .az-side { flex-direction: row; flex-wrap: wrap; }
-  .az-side > * { flex: 1 1 240px; }
+  .az-side { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+  .az-side > * { flex: 1 1 260px; }
+}
+
+@media (max-width: 560px) {
+  .az-screen { --tile: 16px; padding: 10px; gap: 10px; }
+  .az-topbar { flex-wrap: wrap; }
+  .az-supply { flex-direction: column; gap: 10px; }
+  .az-center { flex: 0 0 auto; width: 100%; min-height: 0; }
+  .az-factory { width: 52px; height: 52px; }
+  .az-board-grid { grid-template-columns: minmax(0, 1fr); }
+  .az-wall-cell i { width: 6px; height: 6px; }
 }
