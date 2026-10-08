@@ -7,6 +7,7 @@ import GameRules from "./GameRules.js";
 import OnlineRooms from "./OnlineRooms.js";
 import RoomChat from "./RoomChat.js";
 import { socket } from "./socket.js";
+import { ThemeToggle, useTheme } from "./theme.js";
 import { useVoice } from "./voice.js";
 
 type EntryMode = "create" | "join";
@@ -24,7 +25,10 @@ function App() {
   const [mode, setMode] = useState<EntryMode>("create");
   const [name, setName] = useState("");
   const [capacity, setCapacity] = useState<Capacity>(2);
-  const [confirmAction, confirmDialog] = useConfirm(true);
+  const [confirmAction, confirmDialog] = useConfirm();
+  // 白天 / 夜间画面：首页、等候房间、牌桌共用，顶栏按钮随时切换；和游戏中心、其他游戏共用同一个选择。
+  const [theme, toggleTheme] = useTheme();
+  const themeToggle = <ThemeToggle theme={theme} onToggle={toggleTheme} />;
   const [roomCode, setRoomCode] = useState("");
   const [room, setRoom] = useState<LobbyRoomSnapshot | null>(null);
   const [connected, setConnected] = useState(socket.connected);
@@ -167,7 +171,6 @@ function App() {
       title: "解散房间？",
       detail: "所有玩家都会被移出，当前对局也会结束。",
       confirmLabel: "解散",
-      classicText: "确定解散房间吗？所有玩家都会被移出，当前对局也会结束。",
     });
     if (ok) roomCommand((ack) => socket.emit("room:dissolve", ack));
   }
@@ -192,6 +195,7 @@ function App() {
           notice={notice}
           brand={<Brand />}
           connection={<ConnectionStatus connected={connected} />}
+          themeToggle={themeToggle}
           chat={<RoomChat room={room} voice={voice} />}
           onCommand={submitGameCommand}
           onRematch={voteRematch}
@@ -207,7 +211,10 @@ function App() {
       <main className="app-shell">
         <header className="topbar">
           <Brand />
-          <ConnectionStatus connected={connected} />
+          <div className="topbar-right">
+            {themeToggle}
+            <ConnectionStatus connected={connected} />
+          </div>
         </header>
         <GameRules />
         <RoomView
@@ -234,6 +241,7 @@ function App() {
         <Brand />
         <div className="topbar-right">
           <a className="center-link" href={CENTER_URL}>← 游戏中心</a>
+          {themeToggle}
           <ConnectionStatus connected={connected} />
         </div>
       </header>
