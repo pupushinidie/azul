@@ -14,6 +14,7 @@ import {
 } from "@azul/game";
 import { iconArt, tileArt } from "./art.js";
 import GameRules from "./GameRules.js";
+import { GameRoomMenu } from "./RoomExtras.js";
 import { socket } from "./socket.js";
 
 interface GameBoardProps {
@@ -29,6 +30,11 @@ interface GameBoardProps {
   readonly onCommand: (command: GameCommand) => void;
   readonly onRematch: (accept: boolean) => void;
   readonly onDissolve: () => void;
+  /** 观战时从这位玩家的座位看。 */
+  readonly watchId: string;
+  readonly onWatch: (playerId: string) => void;
+  /** 观战的人离开。 */
+  readonly onLeave: () => void;
 }
 
 /** 地板行 7 格各自的扣分。 */
@@ -92,21 +98,24 @@ function describeEvent(event: GameEvent, name: (id: string) => string): string |
   }
 }
 
-function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onDissolve }: GameBoardProps) {
+function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onDissolve, watchId, onLeave }: GameBoardProps) {
   const game = room.game!;
   const member = room.members.find((candidate) => candidate.id === socket.id);
-  const myId = member?.playerId ?? "";
+  // 观战的人没有座位：牌桌按 watchId 那位玩家的座位摆（me 就是他），但什么都不能点，也不叫「你」。
+  const spectating = !member;
+  const myId = member?.playerId ?? watchId;
+  const selfId = spectating ? "" : myId;
   const isHost = member?.isHost ?? false;
   const me = game.players.find((player) => player.id === myId);
   const current = game.players[game.currentPlayer];
-  const myTurn = game.phase === "drafting" && current?.id === myId;
+  const myTurn = !spectating && game.phase === "drafting" && current?.id === myId;
   const secondsLeft = useCountdown(room);
   // 「对局已开始」这类提示只留到第一步动作，之后不再一直挂在棋盘上
   const firstVersion = useRef(game.version);
   const shownNotice = game.version === firstVersion.current ? notice : "";
 
   const seatColor = (playerId: string) => SEAT_COLORS[Math.max(0, game.players.findIndex((player) => player.id === playerId)) % SEAT_COLORS.length]!;
-  const nameOf = (playerId: string) => (playerId === myId ? "你" : game.players.find((player) => player.id === playerId)?.name ?? "?");
+  const nameOf = (playerId: string) => (playerId === selfId ? "你" : game.players.find((player) => player.id === playerId)?.name ?? "?");
   const connected = (playerId: string) => room.members.find((candidate) => candidate.playerId === playerId)?.connected ?? false;
 
   const [mode, setMode] = useState<Mode>({ kind: "none" });
@@ -162,6 +171,9 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         <div className="az-topbar-right">
           {themeToggle}
           <GameRules />
+          <GameRoomMenu room={room} />
+          {/* 所有人的板子都摆在桌上，观战不用换座位，只要一个离开按钮。 */}
+          {spectating && <button className="quiet-button" type="button" onClick={onLeave}>离开观战</button>}
           {isHost && <button className="quiet-button danger" type="button" onClick={onDissolve}>解散</button>}
           {connection}
         </div>
@@ -233,7 +245,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
             <PlayerBoard
               key={player.id}
               player={player}
-              me={player.id === myId}
+              me={player.id === selfId}
               active={game.phase === "drafting" && game.currentPlayer === game.players.findIndex((p) => p.id === player.id)}
               markerHolder={game.markerHolder === game.players.findIndex((p) => p.id === player.id)}
               seatColor={seatColor(player.id)}
@@ -247,7 +259,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
       </section>
 
       <aside className="az-side">
-        <Players game={game} myId={myId} seatColor={seatColor} connected={connected} />
+        <Players game={game} myId={selfId} seatColor={seatColor} connected={connected} />
         <section className="az-panel az-log">
           <h3>动作记录</h3>
           {log.length === 0 ? <p className="az-muted">还没有动作。</p> : (
@@ -257,7 +269,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         <div className="az-chat">{chat}</div>
       </aside>
 
-      {game.phase === "finished" && <FinalDialog game={game} room={room} myId={myId} nameOf={nameOf} onRematch={onRematch} />}
+      {game.phase === "finished" && <FinalDialog game={game} room={room} myId={selfId} spectating={spectating} onRematch={onRematch} onLeave={onLeave} />}
     </div>
   );
 }
@@ -387,7 +399,14 @@ function Players({ game, myId, seatColor, connected }: { game: GameState; myId: 
 
 // ---------- 终局 ----------
 
-function FinalDialog({ game, room, myId, nameOf, onRematch }: { game: GameState; room: LobbyRoomSnapshot; myId: string; nameOf: (id: string) => string; onRematch: (accept: boolean) => void }) {
+function FinalDialog({ game, room, myId, spectating, onRematch, onLeave }: {
+  game: GameState;
+  room: LobbyRoomSnapshot;
+  myId: string;
+  spectating: boolean;
+  onRematch: (accept: boolean) => void;
+  onLeave: () => void;
+}) {
   const result = game.finalResult!;
   const accepted = room.rematch?.acceptedIds.includes(socket.id ?? "") ?? false;
   const standings = [...game.players].sort((a, b) => (result.scores.find((s) => s.player === b.id)?.score ?? b.score) - (result.scores.find((s) => s.player === a.id)?.score ?? a.score));
@@ -416,7 +435,14 @@ function FinalDialog({ game, room, myId, nameOf, onRematch }: { game: GameState;
             );
           })}
         </ol>
-        {room.rematch && (
+        {spectating ? (
+          <div className="az-rematch">
+            <span>{room.rematch ? `等玩家决定要不要再来一局（${room.rematch.acceptedIds.length}/${room.members.length} 人同意）` : "对局结束"}</span>
+            <div className="gm-panel-actions">
+              <button className="quiet-button" type="button" onClick={onLeave}>离开观战</button>
+            </div>
+          </div>
+        ) : room.rematch && (
           <div className="az-rematch">
             <span>再来一局？还剩 {Math.ceil(room.rematch.remainingMs / 1000)} 秒（{room.rematch.acceptedIds.length}/{room.members.length} 人同意）</span>
             <div className="gm-panel-actions">
