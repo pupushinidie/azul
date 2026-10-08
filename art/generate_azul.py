@@ -1,16 +1,16 @@
 """花砖物语（Azul）的 PixelLab 美术：五种花砖、起始玩家标记、首页主图。
 
-结果直接写进 apps/web/public/art/（Vite 把它当静态资源在 /art/ 下服务）。
-每种图先出两个候选（-c1 / -c2），人工挑好后再复制成正式文件名。
+每种图先出两个候选（-c1 / -c2）到 art/out/candidates/（不进仓库），
+人工挑好后再复制成 apps/web/public/art/ 下的正式文件名（tiles/<颜色>.png、ui/marker.png、ui/hero.png）。
+public 里只放正式文件，候选图不跟着网页一起打包上线。
 """
 from __future__ import annotations
 
-import pathlib
 import sys
 
 import pixellab
 
-WEB_PUBLIC = pixellab.ART.parent / "apps" / "web" / "public" / "art"
+CANDIDATES = pixellab.ART / "out" / "candidates"
 
 # 颜色: (提示词, 宽, 高)
 TILES = {
@@ -55,7 +55,7 @@ def tile(color: str, seed: int) -> None:
         "no_background": False,
         "outline": "lineless",
         "seed": seed,
-    }, WEB_PUBLIC / "tiles")
+    }, CANDIDATES / "tiles")
 
 
 def marker(seed: int) -> None:
@@ -66,7 +66,7 @@ def marker(seed: int) -> None:
         "no_background": True,
         "outline": "single color black outline",
         "seed": seed,
-    }, WEB_PUBLIC / "ui")
+    }, CANDIDATES / "ui")
 
 
 def hero(seed: int) -> None:
@@ -77,7 +77,7 @@ def hero(seed: int) -> None:
         "no_background": False,
         "outline": "lineless",
         "seed": seed,
-    }, WEB_PUBLIC / "ui")
+    }, CANDIDATES / "ui")
 
 
 if __name__ == "__main__":

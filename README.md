@@ -40,9 +40,8 @@ npm run typecheck
 
 PixelLab API，密钥只在 `~/.config/pixellab/api_key`，不进仓库。每次调用记进 `art/ledger.jsonl`，`BUDGET_USD` 设上限。生成的原图和中间文件在被 gitignore 的 `art/out/`。
 
-- `generate_azul.py`：五种花砖（每种出两个候选 `-c1`/`-c2`）、起始玩家标记、首页主图，直接导出到 `apps/web/public/art/`。
+- `generate_azul.py`：五种花砖、起始玩家标记、首页主图，每种出两个候选 `-c1`/`-c2` 到 `art/out/candidates/`；挑好后复制成 `apps/web/public/art/` 下的正式文件名（`tiles/<颜色>.png`、`ui/marker.png`、`ui/hero.png`）。`public` 里只放正式文件。
 - `pixellab.py`：PixelLab API 客户端（`/create-image-pixflux`），调用即记进 ledger。
-- `gallery.py` + `gallery.html`：选图画廊（`python -m http.server 8766 --directory art/out`）。
 
 ## 画面：白天版和夜间版
 
