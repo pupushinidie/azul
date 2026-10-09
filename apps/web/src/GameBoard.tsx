@@ -8,6 +8,7 @@ import {
   type GameEvent,
   type GameState,
   type LineIndex,
+  type LobbyMember,
   type LobbyRoomSnapshot,
   type Player,
   type Source,
@@ -29,6 +30,8 @@ interface GameBoardProps {
   readonly chat: ReactNode;
   readonly onCommand: (command: GameCommand) => void;
   readonly onRematch: (accept: boolean) => void;
+  /** 打开 / 取消自己的托管。 */
+  readonly onAuto: (enabled: boolean) => void;
   readonly onDissolve: () => void;
   /** 观战时从这位玩家的座位看。 */
   readonly watchId: string;
@@ -98,7 +101,7 @@ function describeEvent(event: GameEvent, name: (id: string) => string): string |
   }
 }
 
-function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onDissolve, watchId, onLeave }: GameBoardProps) {
+function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onAuto, onDissolve, watchId, onLeave }: GameBoardProps) {
   const game = room.game!;
   const member = room.members.find((candidate) => candidate.id === socket.id);
   // 观战的人没有座位：牌桌按 watchId 那位玩家的座位摆（me 就是他），但什么都不能点，也不叫「你」。
@@ -116,7 +119,9 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
 
   const seatColor = (playerId: string) => SEAT_COLORS[Math.max(0, game.players.findIndex((player) => player.id === playerId)) % SEAT_COLORS.length]!;
   const nameOf = (playerId: string) => (playerId === selfId ? "你" : game.players.find((player) => player.id === playerId)?.name ?? "?");
-  const connected = (playerId: string) => room.members.find((candidate) => candidate.playerId === playerId)?.connected ?? false;
+  const memberOf = (playerId: string) => room.members.find((candidate) => candidate.playerId === playerId);
+  // 托管中：人机替我行动，提示条上给一个「取消托管」
+  const autoPlaying = member?.auto === true;
 
   const [mode, setMode] = useState<Mode>({ kind: "none" });
   useEffect(() => setMode({ kind: "none" }), [game.version]);
@@ -150,6 +155,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
 
   let prompt = "";
   if (game.phase === "finished") prompt = "游戏结束";
+  else if (autoPlaying) prompt = myTurn ? "托管中：人机正在替你走" : "托管中：轮到你时人机替你走";
   else if (!myTurn) prompt = `等待 ${current?.name ?? ""} 行动`;
   else if (mode.kind === "picked") prompt = `拿了${COLOR_NAMES[mode.color]}砖：点一条图案行或地板行放下`;
   else prompt = "轮到你了：点一个工厂或中心区里的一种颜色";
@@ -237,6 +243,11 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
               <button className="quiet-button" type="button" onClick={() => setMode({ kind: "none" })}>取消</button>
             </span>
           )}
+          {autoPlaying && game.phase === "drafting" && (
+            <span className="az-prompt-buttons">
+              <button className="quiet-button az-auto-cancel" type="button" onClick={() => onAuto(false)}>取消托管</button>
+            </span>
+          )}
         </div>
         {(error || shownNotice) && <p className={error ? "az-feedback error" : "az-feedback"} role={error ? "alert" : "status"}>{error || shownNotice}</p>}
 
@@ -246,6 +257,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
               key={player.id}
               player={player}
               me={player.id === selfId}
+              bot={memberOf(player.id)?.bot === true}
               active={game.phase === "drafting" && game.currentPlayer === game.players.findIndex((p) => p.id === player.id)}
               markerHolder={game.markerHolder === game.players.findIndex((p) => p.id === player.id)}
               seatColor={seatColor(player.id)}
@@ -259,7 +271,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
       </section>
 
       <aside className="az-side">
-        <Players game={game} myId={selfId} seatColor={seatColor} connected={connected} />
+        <Players game={game} myId={selfId} seatColor={seatColor} memberOf={memberOf} />
         <section className="az-panel az-log">
           <h3>动作记录</h3>
           {log.length === 0 ? <p className="az-muted">还没有动作。</p> : (
@@ -277,12 +289,14 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
 // ---------- 玩家棋盘 ----------
 
 function PlayerBoard({
-  player, me, active, markerHolder, seatColor, interactive, mode, validLines, onPickTarget,
+  player, me, active, markerHolder, bot, seatColor, interactive, mode, validLines, onPickTarget,
 }: {
   player: Player;
   me: boolean;
   active: boolean;
   markerHolder: boolean;
+  /** 这个座位是人机。 */
+  bot: boolean;
   seatColor: string;
   interactive: boolean;
   mode: Mode;
@@ -294,7 +308,7 @@ function PlayerBoard({
     <div className={["az-board", me ? "me" : "", active ? "active" : ""].join(" ")}>
       <div className="az-board-head">
         <i className="az-seat" style={{ background: seatColor }} />
-        <strong>{player.name}{me && <small className="az-you">你</small>}</strong>
+        <strong>{player.name}{me && <small className="az-you">你</small>}{bot && <small className="az-bot">人机</small>}</strong>
         {markerHolder && <span className="az-marker-holder" title="下轮先手"><i style={{ backgroundImage: `url(${iconArt.marker})` }} />先手</span>}
         <span className="az-score">{player.score}</span>
       </div>
@@ -377,18 +391,23 @@ function PlayerBoard({
 
 // ---------- 玩家列表 ----------
 
-function Players({ game, myId, seatColor, connected }: { game: GameState; myId: string; seatColor: (id: string) => string; connected: (id: string) => boolean }) {
+function Players({ game, myId, seatColor, memberOf }: { game: GameState; myId: string; seatColor: (id: string) => string; memberOf: (id: string) => LobbyMember | undefined }) {
   const standings = [...game.players].sort((a, b) => b.score - a.score);
   return (
     <section className="az-panel az-players">
       <h3>玩家 <small>按分数</small></h3>
       {standings.map((player) => {
         const active = game.phase === "drafting" && game.currentPlayer === game.players.findIndex((p) => p.id === player.id);
+        const seated = memberOf(player.id);
+        const offline = !seated?.connected;
         return (
-          <div className={["az-player", active ? "active" : "", player.id === myId ? "me" : "", !connected(player.id) ? "offline" : ""].join(" ")} key={player.id}>
+          <div className={["az-player", active ? "active" : "", player.id === myId ? "me" : "", offline ? "offline" : ""].join(" ")} key={player.id}>
             <i className="az-seat" style={{ background: seatColor(player.id) }} />
             <strong>{player.name}{player.id === myId && <small className="az-you">你</small>}</strong>
-            {!connected(player.id) && <small className="az-offline">离线</small>}
+            {seated?.bot && <small className="az-bot">人机</small>}
+            {/* 离线的人也由人机代打 */}
+            {!seated?.bot && (seated?.auto || offline) && <small className="az-auto">托管</small>}
+            {offline && <small className="az-offline">离线</small>}
             <span className="az-score">{player.score}</span>
           </div>
         );
