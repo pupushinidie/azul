@@ -9,7 +9,7 @@
 ```bash
 npm install
 npm run dev          # 服务端 :3006，网页 :5179
-npm test             # 规则引擎（规格书 16 个用例 + 300 局随机模拟）
+npm test             # 规则引擎（规格书 16 个用例 + 300 局随机模拟）、人机、教程剧本、服务器
 npm run typecheck
 ```
 
@@ -24,6 +24,17 @@ npm run typecheck
 | `apps/server` | Socket.IO 房间、断线用原昵称回到座位、60 秒回合计时（超时自动选损失最小的放法）、语音信令、每局的种子和动作序列写进 `logs/games.jsonl` |
 | `apps/web/src/GameBoard.tsx` | 对局界面：工厂与中心区、玩家棋盘（图案行 + 5×5 墙 + 地板行）、先选颜色再选目标、动作记录、结算弹窗 |
 | `art/` | PixelLab 美术流水线（见下） |
+
+## 新手教程
+
+做法和全站一样（剧本局 + 练习局和提示 + 第一次小贴士，咕噜嘎当向导），见 `~/projects/pipeline/handbook/tutorial-notes.md`。
+
+- 入口：首页简介下面的邀请卡，等候房间规则面板下面也有（在等候房间里看教程不离开房间，房主一开局就自动回到牌桌）。地址带 `?tutorial` 直接打开。学过或跳过以后只剩「再看一遍」小按钮（本机 `gm-tutorial-azul`）。
+- 剧本 `packages/game/src/tutorial.ts`（18 步）：两人局后半段的固定局面（第 4 轮，这一轮已经拿过几手），你和咕噜一号各走 3 手就拿完这一轮的砖。依次教：目标、工厂、从工厂拿一种颜色（剩下的进中心区）、图案行规则、从中心区拿砖和起始标记、放不下掉地板、铺墙横竖相连计分（8 分那块和只得 1 分那块）、地板扣分、咕噜一号铺满一整横行游戏结束、终局奖励（你铺满第 3 列 +7，赢 38 比 32）。这一局用不到随机数，剧情一定这样发生；单测 `tutorial.test.ts` 检查每一步合法、锚点看得见、关键几幕的分数，以及练习局人机对打 200 局都能结束。
+- 网页：共用教练层 `apps/web/src/tutorial/`（从欲罢不能原样复制），本游戏的部分是 `TutorialMode.tsx`（假房间、侧栏教程进度）和 `tutorialGame.ts`（「提示」的说法、小贴士）。GameBoard 多了 `selfMemberId`、`mode`、`finalActions`、`finalHidden`、`onSelection` 几个可选属性；要高亮的元素带 `data-tutorial`（`supply`、`center`、`factory:<下标>`、`board|lines|wall|floor:<玩家>`、`line:<玩家>:<行>`、`wall-row:<玩家>:<行>`、`wall:<玩家>:<行>:<列>`、`final:<玩家>`、`hint`、`cancel-auto`、`players`）。
+- 练习局：剧本走完点「开一局练习」，新开一局和咕噜一号（人机）的两人局；「提示」按钮在提示条上（键盘 H），让人机从你的位置算一步并说原因。只有自己和人机的房间里也有「提示」，有别的真人就没有。
+- 第一次小贴士（只在真实对局里出，每条每台机器一次）：拿到起始标记、放不下掉地板、第一次铺墙计分、第一次地板扣分、有人一横行只差一块。
+- 走查脚本：`node ~/projects/qa-reports/tools/tut-azul.mjs <输出目录> flow|waiting|room [1440|1920|1024|390] [night|day]`（先 `npm run dev`；`SHORT=1` 只走到练习局开头）。
 
 ## 规格书没写死、这里这样处理的地方
 
