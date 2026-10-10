@@ -28,8 +28,8 @@ interface StepBase {
   readonly noteTouch?: string;
   /**
    * 高亮哪个元素：网页里 data-tutorial 的值。
-   * 固定的有 supply、center、final、players、hint；一类里的某一个带参数：
-   * factory:<下标>、board:<玩家>、lines:<玩家>、line:<玩家>:<行>、wall:<玩家>、wall-row:<玩家>:<行>、
+   * 固定的有 supply、center、players、hint；一类里的某一个带参数：
+   * final:<玩家>（结算框里那一行）、factory:<下标>、board:<玩家>、lines:<玩家>、line:<玩家>:<行>、wall:<玩家>、wall-row:<玩家>:<行>、
    * wall:<玩家>:<行>:<列>、floor:<玩家>。
    */
   readonly anchor?: string;
@@ -149,7 +149,7 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
     note: "只要有人铺满一整横行，那一轮结束时游戏就结束。",
   },
   {
-    kind: "info", id: TUTORIAL_FINAL_STEP, lesson: "终局奖励", anchor: "final", face: "happy",
+    kind: "info", id: TUTORIAL_FINAL_STEP, lesson: "终局奖励", anchor: `final:${TUTORIAL_SELF}`, face: "happy",
     say: "最后加终局奖励，你赢了！",
     note: "每条整横行 +2，整竖列 +7，一种颜色 5 块都上墙 +10。你铺满了第 3 列，+7。",
   },
@@ -244,7 +244,8 @@ export function anchorVisible(state: GameState, anchor: string, viewer: string):
     case "center":
       return state.center.length > 0 || state.firstMarkerInCenter;
     case "final":
-      return state.phase === "finished";
+      // 结算框里某位玩家的那一行
+      return state.phase === "finished" && player !== undefined;
     case "hint":
       return myTurn;
     case "factory": {

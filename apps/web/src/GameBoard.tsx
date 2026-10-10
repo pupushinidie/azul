@@ -17,6 +17,9 @@ import { iconArt, tileArt } from "./art.js";
 import GameRules from "./GameRules.js";
 import { GameRoomMenu } from "./RoomExtras.js";
 import { socket } from "./socket.js";
+import { Coach, TipToast } from "./tutorial/Coach.js";
+import { useFirstTimeTips } from "./tutorial/tips.js";
+import { detectTips, GAME_ID, hintFor, TIPS, type Hint } from "./tutorialGame.js";
 
 interface GameBoardProps {
   readonly room: LobbyRoomSnapshot;
@@ -38,6 +41,20 @@ interface GameBoardProps {
   readonly onWatch: (playerId: string) => void;
   /** 观战的人离开。 */
   readonly onLeave: () => void;
+  /** 自己在 room.members 里的 id；默认是 socket.id，教程里传固定值。 */
+  readonly selfMemberId?: string;
+  /**
+   * online：真实对局（默认）；
+   * tutorial：新手教程的剧本进行中（咕噜嘎在讲，不出提示和小贴士）；
+   * practice：教程后的练习局（随时能看提示）。
+   */
+  readonly mode?: "online" | "tutorial" | "practice";
+  /** 结算框里替代「再来一局」的按钮（练习局用）。 */
+  readonly finalActions?: ReactNode;
+  /** 先不弹结算框（教程里先讲完铺墙计分）。 */
+  readonly finalHidden?: boolean;
+  /** 界面上「先点砖、再点放哪」的当前选择（教程按它移动高亮），例如 picked:factory:1:yellow、picked:center:red。 */
+  readonly onSelection?: (selection: string) => void;
 }
 
 /** 地板行 7 格各自的扣分。 */
@@ -101,9 +118,9 @@ function describeEvent(event: GameEvent, name: (id: string) => string): string |
   }
 }
 
-function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onAuto, onDissolve, watchId, onLeave }: GameBoardProps) {
+function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onAuto, onDissolve, watchId, onLeave, selfMemberId, mode: boardMode = "online", finalActions, finalHidden = false, onSelection }: GameBoardProps) {
   const game = room.game!;
-  const member = room.members.find((candidate) => candidate.id === socket.id);
+  const member = room.members.find((candidate) => candidate.id === (selfMemberId ?? socket.id));
   // 观战的人没有座位：牌桌按 watchId 那位玩家的座位摆（me 就是他），但什么都不能点，也不叫「你」。
   const spectating = !member;
   const myId = member?.playerId ?? watchId;
@@ -125,6 +142,28 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
 
   const [mode, setMode] = useState<Mode>({ kind: "none" });
   useEffect(() => setMode({ kind: "none" }), [game.version]);
+  const selection = mode.kind === "picked"
+    ? `picked:${mode.source.kind === "factory" ? `factory:${mode.source.index}` : "center"}:${mode.color}`
+    : "none";
+  useEffect(() => onSelection?.(selection), [selection]);
+
+  // 「提示」：只有自己和人机时（练习局，或一个人加人机开的房间）；让人机从你的位置算一步
+  const botsOnly = room.members.every((candidate) => candidate.id === member?.id || candidate.bot);
+  const canHint = !spectating && !autoPlaying && myTurn && (boardMode === "practice" || (boardMode === "online" && botsOnly));
+  const [hint, setHint] = useState<{ version: number; hint: Hint } | null>(null);
+  const shownHint = hint && hint.version === game.version && canHint ? hint.hint : null;
+  const toggleHint = () => setHint((current) => (current && current.version === game.version ? null : { version: game.version, hint: hintFor(game, myId) }));
+  useEffect(() => {
+    if (!canHint) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if (event.key.toLowerCase() === "h") toggleHint();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canHint, game.version]);
+  const tips = useFirstTimeTips(GAME_ID, game.version, () => detectTips(game, myId), TIPS, boardMode === "online" && !spectating);
 
   // 动作记录：只在本页面累计，重连后从头记
   const [log, setLog] = useState<{ key: string; text: string }[]>([]);
@@ -185,10 +224,10 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         </div>
       </header>
 
-      <section className="az-supply" aria-label="工厂与中心区">
+      <section className="az-supply" aria-label="工厂与中心区" data-tutorial="supply">
         <div className="az-factories">
           {game.factories.map((factory, index) => (
-            <div className={factory.length === 0 ? "az-factory empty" : "az-factory"} key={index} aria-label={`第 ${index + 1} 个工厂`}>
+            <div className={factory.length === 0 ? "az-factory empty" : "az-factory"} key={index} aria-label={`第 ${index + 1} 个工厂`} data-tutorial={`factory:${index}`}>
               {[0, 1, 2, 3].map((slot) => {
                 const color = factory[slot];
                 return color ? (
@@ -208,7 +247,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
             </div>
           ))}
         </div>
-        <div className={game.center.length === 0 && !game.firstMarkerInCenter ? "az-center empty" : "az-center"} aria-label="中心区">
+        <div className={game.center.length === 0 && !game.firstMarkerInCenter ? "az-center empty" : "az-center"} aria-label="中心区" data-tutorial="center">
           <span className="az-center-label">中心区</span>
           <div className="az-center-tiles">
             {game.firstMarkerInCenter && (
@@ -238,6 +277,11 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
       <section className={myTurn ? "az-boards mine" : "az-boards"} aria-live="polite">
         <div className="az-prompt">
           <span>{prompt}</span>
+          {canHint && (
+            <span className="az-prompt-buttons">
+              <button className={shownHint ? "quiet-button az-hint on" : "quiet-button az-hint"} type="button" data-tutorial="hint" onClick={toggleHint}>提示</button>
+            </span>
+          )}
           {mode.kind === "picked" && (
             <span className="az-prompt-buttons">
               <button className="quiet-button" type="button" onClick={() => setMode({ kind: "none" })}>取消</button>
@@ -245,7 +289,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
           )}
           {autoPlaying && game.phase === "drafting" && (
             <span className="az-prompt-buttons">
-              <button className="quiet-button az-auto-cancel" type="button" onClick={() => onAuto(false)}>取消托管</button>
+              <button className="quiet-button az-auto-cancel" type="button" onClick={() => onAuto(false)} data-tutorial="cancel-auto">取消托管</button>
             </span>
           )}
         </div>
@@ -281,7 +325,22 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         <div className="az-chat">{chat}</div>
       </aside>
 
-      {game.phase === "finished" && <FinalDialog game={game} room={room} myId={selfId} spectating={spectating} onRematch={onRematch} onLeave={onLeave} />}
+      {game.phase === "finished" && !finalHidden && <FinalDialog game={game} room={room} myId={selfId} spectating={spectating} onRematch={onRematch} onLeave={onLeave} actions={finalActions} />}
+      {shownHint && (
+        <Coach
+          bubble
+          view={{
+            key: `hint-${game.version}`,
+            say: shownHint.say,
+            ...(shownHint.note ? { note: shownHint.note } : {}),
+            anchor: shownHint.anchor,
+            focus: false,
+            face: "think",
+            actions: <button className="quiet-button" type="button" onClick={() => setHint(null)}>知道了</button>,
+          }}
+        />
+      )}
+      {tips.tip && <TipToast tip={tips.tip} onClose={tips.dismiss} onNever={tips.never} />}
     </div>
   );
 }
@@ -305,7 +364,7 @@ function PlayerBoard({
 }) {
   const lineTargets = new Set(validLines);
   return (
-    <div className={["az-board", me ? "me" : "", active ? "active" : ""].join(" ")}>
+    <div className={["az-board", me ? "me" : "", active ? "active" : ""].join(" ")} data-tutorial={`board:${player.id}`}>
       <div className="az-board-head">
         <i className="az-seat" style={{ background: seatColor }} />
         <strong>{player.name}{me && <small className="az-you">你</small>}{bot && <small className="az-bot">人机</small>}</strong>
@@ -314,7 +373,7 @@ function PlayerBoard({
       </div>
 
       <div className="az-board-body">
-        <div className="az-pattern-lines">
+        <div className="az-pattern-lines" data-tutorial={`lines:${player.id}`}>
           {LINE_INDICES.map((index) => {
             const line = player.patternLines[index]!;
             const capacity = index + 1;
@@ -327,6 +386,7 @@ function PlayerBoard({
                 disabled={!clickable}
                 onClick={() => onPickTarget({ kind: "line", index })}
                 aria-label={`第 ${index + 1} 条图案行（容量 ${capacity}）`}
+                data-tutorial={`line:${player.id}:${index}`}
               >
                 {Array.from({ length: capacity }, (_, slot) => {
                   // 砖从靠墙的右端往左填
@@ -342,16 +402,16 @@ function PlayerBoard({
           })}
         </div>
 
-        <div className="az-wall" aria-label="墙">
+        <div className="az-wall" aria-label="墙" data-tutorial={`wall:${player.id}`}>
           {Array.from({ length: 5 }, (_, row) => (
-            <div className="az-wall-row" key={row}>
+            <div className="az-wall-row" key={row} data-tutorial={`wall-row:${player.id}:${row}`}>
               {Array.from({ length: 5 }, (_, col) => {
                 const filled = player.wall[row]![col];
                 const targetColor = wallColor(row, col);
                 return filled ? (
-                  <span key={col} className="az-tile" style={{ backgroundImage: `url(${tileArt[targetColor]})` }} />
+                  <span key={col} className="az-tile" style={{ backgroundImage: `url(${tileArt[targetColor]})` }} data-tutorial={`wall:${player.id}:${row}:${col}`} />
                 ) : (
-                  <span key={col} className="az-wall-cell" title={`${COLOR_NAMES[targetColor]}砖的位置`}>
+                  <span key={col} className="az-wall-cell" title={`${COLOR_NAMES[targetColor]}砖的位置`} data-tutorial={`wall:${player.id}:${row}:${col}`}>
                     <i style={{ backgroundImage: `url(${tileArt[targetColor]})` }} />
                   </span>
                 );
@@ -367,6 +427,7 @@ function PlayerBoard({
         disabled={!(interactive && mode.kind === "picked")}
         onClick={() => onPickTarget({ kind: "floor" })}
         aria-label="地板行"
+        data-tutorial={`floor:${player.id}`}
         title="地板行（最多 7 格，要扣分）"
       >
         <span className="az-floor-label">地板</span>
@@ -394,7 +455,7 @@ function PlayerBoard({
 function Players({ game, myId, seatColor, memberOf }: { game: GameState; myId: string; seatColor: (id: string) => string; memberOf: (id: string) => LobbyMember | undefined }) {
   const standings = [...game.players].sort((a, b) => b.score - a.score);
   return (
-    <section className="az-panel az-players">
+    <section className="az-panel az-players" data-tutorial="players">
       <h3>玩家 <small>按分数</small></h3>
       {standings.map((player) => {
         const active = game.phase === "drafting" && game.currentPlayer === game.players.findIndex((p) => p.id === player.id);
@@ -418,13 +479,15 @@ function Players({ game, myId, seatColor, memberOf }: { game: GameState; myId: s
 
 // ---------- 终局 ----------
 
-function FinalDialog({ game, room, myId, spectating, onRematch, onLeave }: {
+function FinalDialog({ game, room, myId, spectating, onRematch, onLeave, actions }: {
   game: GameState;
   room: LobbyRoomSnapshot;
   myId: string;
   spectating: boolean;
   onRematch: (accept: boolean) => void;
   onLeave: () => void;
+  /** 练习局：替代「再来一局」的按钮。 */
+  actions?: ReactNode;
 }) {
   const result = game.finalResult!;
   const accepted = room.rematch?.acceptedIds.includes(socket.id ?? "") ?? false;
@@ -438,7 +501,7 @@ function FinalDialog({ game, room, myId, spectating, onRematch, onLeave }: {
             const score = result.scores.find((s) => s.player === player.id);
             const winner = result.winners.includes(player.id);
             return (
-              <li key={player.id} className={winner ? "winner" : ""}>
+              <li key={player.id} className={winner ? "winner" : ""} data-tutorial={`final:${player.id}`}>
                 <span className="az-standing-name">{winner ? "🏆 " : ""}{player.name}{player.id === myId ? "（你）" : ""}</span>
                 {score && (
                   <span className="az-score-detail">
@@ -460,6 +523,11 @@ function FinalDialog({ game, room, myId, spectating, onRematch, onLeave }: {
             <div className="gm-panel-actions">
               <button className="quiet-button" type="button" onClick={onLeave}>离开观战</button>
             </div>
+          </div>
+        ) : actions ? (
+          <div className="az-rematch">
+            <span>练习局结束</span>
+            <div className="gm-panel-actions">{actions}</div>
           </div>
         ) : room.rematch && (
           <div className="az-rematch">
