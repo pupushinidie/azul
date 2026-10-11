@@ -77,3 +77,5 @@ pm2 按仓库根目录的 `ecosystem.config.cjs` 直接启动一个 `node --impo
 进了房间（等候房间、对局、观战）和新手教程里循环放 `apps/web/public/bgm/azul.mp3`，首页和房间列表不放。曲子是他用 Suno 做的，原文件在桌面 `bgm v1/花砖物语.mp3`（2026-10-11 接入）。播放器是 `apps/web/src/bgm.tsx`（大厅和各游戏是同一份文件，改了要同步到所有仓库）：一个页面只有一个播放器，从等候房间进牌桌不会从头放；循环处交叉淡化；切到别的标签页时暂停。顶栏的 ♪ 按钮能开关、调音量，设置全站共用（localStorage `gm-music`、`gm-music-volume`，默认开、音量 60）。浏览器要求先点过页面才能出声，从首页点进房间正好满足。
 
 换曲子：把新文件放进 `apps/web/public/bgm/`，用 `~/miniconda3/envs/quant/bin/python -I ~/projects/qa-reports/tools/bgm-analyze.py <文件>` 量出 gain / start / end，改 `App.tsx` 里的 `BGM`。本地检查：`URL=http://localhost:<网页端口>/ node ~/projects/qa-reports/tools/bgm-check.mjs`（进房间、开局、离开、开关、顶栏是否被挤成两行）。
+
+动作音效在 `apps/web/src/game-sfx.ts`（`useGameSfx`，对比前后两次对局快照的 version 和这一步的 events；共用音效库 `gm-sound.tsx` 不要改）：拿砖 = 几块瓷砖碰在一起的「嗒嗒」，放进图案行 = 一声更沉的「嗒」、正好放满加一声「叮」，拿走起始标记 = 木头标记落下，掉进地板 = 招牌「砖掉地上」（闷响 + 往下滑）；回合末贴墙 = 招牌「上墙」（每块一声、一块比一块高）、然后得分声，地板扣分 = 往下滑的失手声；新一轮 = 提示音 + 布袋倒砖的哗啦声；轮到你、交出回合、最后 5 秒倒计时、超时、终局赢/输都有提示音。别人的动作音量减半，进房间 / 重连时不补响。点工厂或中心区的砖是「选中」声，灰掉不能点的是「不行」声。开发模式下每响一个都记进 `window.__sfxLog`，自测脚本 `~/projects/qa-reports/tools/azul-sfx.mjs`（打一整局）和 `sfx-tiles-tut.mjs`（走一遍教程）读它。

@@ -16,6 +16,8 @@ import {
 import { iconArt, tileArt } from "./art.js";
 import GameRules from "./GameRules.js";
 import { GameRoomMenu } from "./RoomExtras.js";
+import { useGameSfx } from "./game-sfx.js";
+import { useSfxCountdown } from "./gm-sound.js";
 import { socket } from "./socket.js";
 import { Coach, TipToast } from "./tutorial/Coach.js";
 import { useFirstTimeTips } from "./tutorial/tips.js";
@@ -130,6 +132,8 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
   const current = game.players[game.currentPlayer];
   const myTurn = !spectating && game.phase === "drafting" && current?.id === myId;
   const secondsLeft = useCountdown(room);
+  useGameSfx(game, selfId);
+  useSfxCountdown(myTurn && member?.auto !== true, secondsLeft);
   // 「对局已开始」这类提示只留到第一步动作，之后不再一直挂在棋盘上
   const firstVersion = useRef(game.version);
   const shownNotice = game.version === firstVersion.current ? notice : "";
@@ -237,6 +241,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
                     className={mode.kind === "picked" && mode.source.kind === "factory" && mode.source.index === index && mode.color === color ? "az-tile picked" : "az-tile"}
                     style={{ backgroundImage: `url(${tileArt[color]})` }}
                     disabled={!canAct}
+                    data-sfx="select"
                     onClick={() => pick({ kind: "factory", index }, color)}
                     aria-label={`${COLOR_NAMES[color]}砖`}
                   />
@@ -265,6 +270,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
                 className={mode.kind === "picked" && mode.source.kind === "center" && mode.color === color ? "az-tile picked" : "az-tile"}
                 style={{ backgroundImage: `url(${tileArt[color]})` }}
                 disabled={!canAct}
+                data-sfx="select"
                 onClick={() => pick({ kind: "center" }, color)}
                 aria-label={`${COLOR_NAMES[color]}砖`}
               />

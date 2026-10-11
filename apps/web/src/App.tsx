@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, useRef } from "react";
 import { CAPACITY_OPTIONS, type Capacity, type GameCommand, type LobbyRoomSnapshot, type PublicRoomSummary } from "@azul/game";
 import { iconArt, tileArt } from "./art.js";
 import { useConfirm } from "./confirm.js";
@@ -9,7 +9,7 @@ import RoomChat from "./RoomChat.js";
 import { roomRole, RoomSettingsPanel, SeatSwitch } from "./RoomExtras.js";
 import { socket } from "./socket.js";
 import { ThemeToggle, useTheme } from "./theme.js";
-import { SoundToggle, useBgm, type BgmTrack } from "./gm-sound.js";
+import { useRoomSfx, sfx, SoundToggle, useBgm, type BgmTrack } from "./gm-sound.js";
 import { useVoice } from "./voice.js";
 import { TutorialInvite } from "./tutorial/Invite.js";
 import { readTutorial } from "./tutorial/storage.js";
@@ -51,6 +51,11 @@ function App() {
   // 新手教程：首页或等候房间点进来（地址带 ?tutorial 时直接打开，游戏中心可以直接链过来）
   const [tutorialOpen, setTutorialOpen] = useState(() => new URLSearchParams(window.location.search).has("tutorial"));
   useBgm(room || tutorialOpen ? BGM : null);
+  // 房间里的提示音：有人进出、开局、收到别人的聊天（聊天只留最近几条，按最后一条的 id 数新消息）
+  const lastChat = room ? room.chat[room.chat.length - 1] : undefined;
+  const chatSeen = useRef<{ id: string | undefined; count: number }>({ id: undefined, count: 0 });
+  if (lastChat?.id !== chatSeen.current.id) chatSeen.current = { id: lastChat?.id, count: chatSeen.current.count + 1 };
+  useRoomSfx(room ? { members: room.members.length, playing: room.status === "playing", chatCount: chatSeen.current.count, lastChatMine: lastChat?.senderId === socket.id } : null);
 
   function closeTutorial() {
     setTutorialOpen(false);
@@ -87,7 +92,10 @@ function App() {
     };
     const handleDisconnect = () => setConnected(false);
     const handleRoomUpdate = (snapshot: LobbyRoomSnapshot) => setRoom(snapshot);
-    const handleRoomError = (message: string) => setError(message);
+    const handleRoomError = (message: string) => {
+      sfx.error();
+      setError(message);
+    };
     const handleLobbyUpdate = (rooms: PublicRoomSummary[]) => setLobbyRooms(rooms);
     const handleRoomClosed = ({ reason }: { reason: string }) => {
       setRoom(null);
@@ -204,6 +212,7 @@ function App() {
     socket.emit("game:command", command, (response) => {
       setBusy(false);
       if (!response.ok) {
+        sfx.error();
         setError(response.error);
         return;
       }
