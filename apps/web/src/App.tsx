@@ -289,7 +289,8 @@ function App() {
 
   if (room) {
     return (
-      <main className="app-shell">
+      <main className="app-shell az-room">
+        <AzBackdrop />
         <header className="topbar">
           <Brand />
           <div className="topbar-right">
@@ -325,7 +326,8 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell az-home">
+      <AzBackdrop />
       <header className="topbar">
         <Brand />
         <div className="topbar-right">
@@ -461,6 +463,18 @@ function App() {
       <OnlineRooms rooms={lobbyRooms} connected={connected} busy={busy} onJoin={joinListed} />
       <footer className="page-footer">一砖一瓦，拼出最漂亮的墙。</footer>
     </main>
+  );
+}
+
+/** 全屏背景：把对局场景铺满窗口（16:9 居中裁切），上面盖一层罩色让面板更突出。首页和等候房间放在 <main> 的第一个子元素。 */
+function AzBackdrop() {
+  const base = import.meta.env.BASE_URL;
+  return (
+    <div className="az-backdrop" aria-hidden="true">
+      <div className="az-backdrop-art az-backdrop-art--day" style={{ backgroundImage: `url(${base}art/bg/day.png)` }} />
+      <div className="az-backdrop-art az-backdrop-art--night" style={{ backgroundImage: `url(${base}art/bg/night.png)` }} />
+      <div className="az-backdrop-veil" />
+    </div>
   );
 }
 
