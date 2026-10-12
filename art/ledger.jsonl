@@ -12,3 +12,9 @@
 {"time": "2026-10-07 11:27:32", "name": "marker-c2", "endpoint": "/create-image-pixflux", "usage": {"type": "usd", "usd": 0.010204941723081801}, "seconds": 70.8}
 {"time": "2026-10-07 11:28:13", "name": "hero-c1", "endpoint": "/create-image-pixflux", "usage": {"type": "usd", "usd": 0.007311356412039863}, "seconds": 41.3}
 {"time": "2026-10-07 11:28:54", "name": "hero-c2", "endpoint": "/create-image-pixflux", "usage": {"type": "usd", "usd": 0.007235128932529026}, "seconds": 41.3}
+{"time": "2026-10-11 22:07:20", "name": "night-s1103", "endpoint": "/create-image-pixen", "usage": {"type": "generations", "generations": 1.0}, "seconds": 47.3}
+{"time": "2026-10-11 22:07:24", "name": "night-s1101", "endpoint": "/create-image-pixen", "usage": {"type": "generations", "generations": 1.0}, "seconds": 51.4}
+{"time": "2026-10-11 22:07:34", "name": "night-s1102", "endpoint": "/create-image-pixen", "usage": {"type": "generations", "generations": 1.0}, "seconds": 60.8}
+{"time": "2026-10-11 22:07:46", "name": "day-s1103", "endpoint": "/create-image-pixen", "usage": {"type": "generations", "generations": 1.0}, "seconds": 73.7}
+{"time": "2026-10-11 22:07:47", "name": "day-s1101", "endpoint": "/create-image-pixen", "usage": {"type": "generations", "generations": 1.0}, "seconds": 74.5}
+{"time": "2026-10-11 22:07:58", "name": "day-s1102", "endpoint": "/create-image-pixen", "usage": {"type": "generations", "generations": 1.0}, "seconds": 85.0}
